@@ -1,0 +1,54 @@
+version: "3.8"
+
+volumes:
+  db_data:
+
+
+services:
+  nginx:
+    image: "nginx:stable-alpine"
+    ports:
+      - "8099:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./source-code:/var/www/laravel
+    # this is used to link the nginx container with the php container
+    # also docker compose up command will not start other containers that are not linked 
+    # ( composer and artisan) , which we will call explicitely with docker-compose run command (see Readme.md file)  
+    depends_on:
+      - mysql
+      - php
+
+  php:
+    build:
+      context: dockerfiles
+      dockerfile: php.Dockerfile
+    volumes:
+      - ./source-code:/var/www/laravel
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3333:3306"
+    env_file:
+      - environments/mysql.env
+    volumes:
+      - db_data:/var/lib/mysql
+
+  #service containers to run composer and artisan commands explicitly to perform specific tasks ( see Readme.md file)
+  composer:
+    image: composer:latest
+    volumes:
+      - ./source-code:/var/www/laravel
+    working_dir: /var/www/laravel 
+    entrypoint: ["composer", "--ignore-platform-reqs"]
+
+  artisan:
+    build:
+      context: dockerfiles
+      dockerfile: php.Dockerfile
+    volumes:
+      - ./source-code:/var/www/laravel
+    #specify the working directory of artisan command  
+    entrypoint: ["php", "/var/www/laravel/artisan"]
+
